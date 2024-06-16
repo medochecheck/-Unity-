@@ -1,0 +1,50 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class RainController : MonoBehaviour
+{
+    public ParticleSystem rainParticleSystem;
+    public float minRainIntensity = 100f; 
+    public float maxRainIntensity = 1000f; 
+    public float minChangeInterval = 5.0f; 
+    public float maxChangeInterval = 15.0f; 
+
+    private ParticleSystem.EmissionModule rainEmission;
+
+    void Start()
+    {
+        if (rainParticleSystem != null)
+        {
+            rainEmission = rainParticleSystem.emission;
+            StartCoroutine(ChangeRainIntensity());
+        }
+    }
+
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            if (rainParticleSystem.isEmitting)
+            {
+                rainParticleSystem.Stop();
+            }
+            else
+            {
+                rainParticleSystem.Play();
+            }
+        }
+    }
+
+    IEnumerator ChangeRainIntensity()
+    {
+        while (true)
+        {
+            float waitTime = Random.Range(minChangeInterval, maxChangeInterval);
+            yield return new WaitForSeconds(waitTime);
+            float rainIntensity = Random.Range(minRainIntensity, maxRainIntensity);
+            var emissionRate = new ParticleSystem.MinMaxCurve(rainIntensity);
+            rainEmission.rateOverTime = emissionRate;
+        }
+    }
+}

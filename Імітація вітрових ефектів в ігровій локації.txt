@@ -1,0 +1,36 @@
+using System.Collections;
+using UnityEngine;
+
+public class WindSetup : MonoBehaviour
+{
+    public WindZone windZone;
+
+    public float minWindMain = 0.5f;     
+    public float maxWindMain = 2.0f;      
+    public float minChangeInterval = 5.0f;  
+    public float maxChangeInterval = 15.0f; 
+    void Start()
+    {
+        if (windZone == null)
+        {
+            windZone = new GameObject("WindZone").AddComponent<WindZone>();
+        }
+
+        windZone.windMain = Random.Range(minWindMain, maxWindMain);
+        windZone.windTurbulence = 0.5f;
+        windZone.windPulseMagnitude = 0.3f;
+        windZone.windPulseFrequency = 0.2f;
+
+        StartCoroutine(ChangeWind());
+    }
+
+    IEnumerator ChangeWind()
+    {
+        while (true)
+        {
+            float waitTime = Random.Range(minChangeInterval, maxChangeInterval);
+            yield return new WaitForSeconds(waitTime);
+            windZone.windMain = Random.Range(minWindMain, maxWindMain);
+        }
+    }
+}

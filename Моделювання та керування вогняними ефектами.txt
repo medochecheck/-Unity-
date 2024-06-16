@@ -1,0 +1,56 @@
+using System.Collections;
+using UnityEngine;
+
+public class FireController : MonoBehaviour
+{
+    public ParticleSystem wildFire;
+    public ParticleSystem wildFire1;
+    public Light wildFireLight;
+    public Light wildFire1Light;
+    public Camera mainCamera;
+    public float minIntensity = 0.5f;
+    public float maxIntensity = 2.0f;
+    public float minChangeInterval = 5.0f;
+    public float maxChangeInterval = 15.0f;
+    public float blurIntensity = 0.5f;
+    public float blurDistance = 10.0f;
+
+    private ParticleSystem.EmissionModule wildFireEmission;
+    private ParticleSystem.EmissionModule wildFire1Emission;
+
+    void Start()
+    {
+        wildFireEmission = wildFire.emission;
+        wildFire1Emission = wildFire1.emission;
+        
+        StartCoroutine(ChangeFireIntensity());
+    }
+
+    void Update()
+    {
+        HandleCameraEffects();
+    }
+
+    IEnumerator ChangeFireIntensity()
+    {
+        while (true)
+        {
+            float waitTime = Random.Range(minChangeInterval, maxChangeInterval);
+            yield return new WaitForSeconds(waitTime);
+
+            float newIntensity = Random.Range(minIntensity, maxIntensity);
+            wildFireEmission.rateOverTime = newIntensity * 10;
+            wildFire1Emission.rateOverTime = newIntensity * 10;
+            wildFireLight.intensity = newIntensity;
+            wildFire1Light.intensity = newIntensity;
+        }
+    }
+    void HandleCameraEffects()
+    {
+        float distanceToFire = Mathf.Min(Vector3.Distance(mainCamera.transform.position, wildFire.transform.position), Vector3.Distance(mainCamera.transform.position, wildFire1.transform.position));
+        if (distanceToFire < blurDistance)
+        {
+            float blurAmount = blurIntensity * (1 - (distanceToFire / blurDistance));
+        }
+    }
+}

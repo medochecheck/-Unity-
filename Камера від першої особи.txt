@@ -1,0 +1,16 @@
+using System.Collections;
+using UnityEngine;
+
+public class FirstPersonCamera : MonoBehaviour
+{
+    public Transform head; // Перетащите объект головы сюда в инспекторе
+
+    void LateUpdate()
+    {
+        if (head != null)
+        {
+            transform.position = head.position;
+            transform.rotation = head.rotation;
+        }
+    }
+}

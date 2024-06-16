@@ -1,0 +1,22 @@
+public class Player : MonoBehaviour
+{
+    private ExperienceSystem experienceSystem;
+
+    void Start()
+    {
+        experienceSystem = GetComponent<ExperienceSystem>();
+        experienceSystem.OnLevelUp += HandleLevelUp;
+    }
+
+    void HandleLevelUp()
+    {
+        // Обработка событий при повышении уровня
+        Debug.Log("Level Up! Current Level: " + experienceSystem.GetCurrentLevel());
+        // Здесь можно добавить логику для улучшения характеристик персонажа
+    }
+
+    void OnDestroy()
+    {
+        experienceSystem.OnLevelUp -= HandleLevelUp;
+    }
+}

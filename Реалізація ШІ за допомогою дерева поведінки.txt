@@ -1,0 +1,1117 @@
+Скрипти дерева поведінки
+
+
+Node
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+namespace BehaviourTree
+{
+    public enum NodeState{
+        RUNNING,
+        SUCCESS,
+        FAILURE
+    }
+    public class Node
+    {
+        protected NodeState state;
+        public Node parent;
+        protected List<Node> children = new List<Node>();
+        public Node()
+        {
+            parent = null;
+        }
+        public Node(List<Node> children)
+        {
+            foreach (Node child in children)
+                _Attach(child);
+        }
+        private void _Attach(Node node)
+        {
+            node.parent = this;
+            children.Add(node);
+        }
+        public  virtual NodeState Evaluate() => NodeState.FAILURE;
+    }
+}
+
+
+Trees
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+namespace BehaviourTree
+{
+    public abstract class Trees : MonoBehaviour
+    {
+        private Node _root = null;
+        protected void Start() {
+            _root = SetupTree();
+        }
+        protected void Update() {
+            if (_root != null)
+                _root.Evaluate();
+        }
+        protected abstract Node SetupTree();
+    }
+}
+
+
+Selector
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+namespace BehaviourTree
+{
+    public class Selector : Node
+    {
+        public Selector() : base() { }
+        public Selector(List<Node> children) : base(children) { }
+        public override NodeState Evaluate()
+        {
+            foreach (Node node in children)
+            {
+                switch (node.Evaluate())
+                {
+                    case NodeState.FAILURE:
+                        continue;
+                    case NodeState.SUCCESS:
+                        state = NodeState.SUCCESS;
+                        return state;
+                    case NodeState.RUNNING:
+                        state = NodeState.RUNNING;
+                        return state;
+                    default:
+                        continue;
+                }
+            }
+            state = NodeState.FAILURE;
+            return state;
+        }
+    }
+}
+
+
+Sequence
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+namespace BehaviourTree
+{
+    public class Sequence : Node
+    {
+        public Sequence() : base() { }
+        public Sequence(List<Node> children) : base(children) { }
+        public override NodeState Evaluate()
+        {
+            bool anyChildIsRunning = false;
+            foreach (Node node in children)
+            {
+                switch (node.Evaluate())
+                {
+                    case NodeState.FAILURE:
+                        state = NodeState.FAILURE;
+                        return state;
+                    case NodeState.SUCCESS:
+                        continue;
+                    case NodeState.RUNNING:
+                        anyChildIsRunning = true;
+                        continue;
+                    default:
+                        state = NodeState.SUCCESS;
+                        return state;
+                }
+            }
+            
+        state = anyChildIsRunning ? NodeState.RUNNING : NodeState.SUCCESS;
+        return state;
+        }
+    }
+}
+
+
+
+ШІ атакуючого противника
+
+
+CheckAttack
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+using BehaviourTree;
+public class CheckAttack : Node
+{
+    private GameObject _player;
+    private Animator _animator;
+    private NavMeshAgent _agent;
+    private Transform _transform;
+    private float _attackRange;
+    public CheckAttack(NavMeshAgent agent, Transform transform, float attackRange)
+    {
+        _player = GameObject.FindWithTag("Player");
+        _agent = agent;
+        _animator = transform.GetComponent<Animator>();
+        _transform = transform;
+        _attackRange = attackRange;
+    }
+    public override NodeState Evaluate()
+    {
+        if (Vector3.Distance(_player.transform.position, _transform.position) <= _attackRange){
+            state = NodeState.SUCCESS;
+            return state;
+        }
+        else
+        {
+            _agent.isStopped = false;
+            _animator.SetBool("isAuto", false);
+            state = NodeState.FAILURE;
+            return state;
+        }
+    }
+}
+
+
+TaskSpellAttack
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+using BehaviourTree;
+public class TaskSpellAttack : Node
+{
+    private GameObject _player;
+    private GameObject _Sign;
+    private Transform _transform;
+    private NavMeshAgent _agent;
+    private Animator _animator;
+    private float _Damage;
+    private float _cooldownSpell, cooldown;
+    public TaskSpellAttack(GameObject Sign, float Damage, NavMeshAgent agent, Transform transform, float cooldownSpell)
+    {
+        _player = GameObject.FindWithTag("Player");
+        _Sign = Sign;
+        _Damage = Damage;
+        _transform = transform;
+        _agent = agent;
+        _animator = agent.GetComponent<Animator>();
+        _cooldownSpell = cooldownSpell;
+        cooldown = _cooldownSpell;
+    }
+    public override NodeState Evaluate()
+    {
+        cooldown -= Time.deltaTime;
+        if(cooldown <= 0)
+        {
+            _agent.isStopped = true;
+            _transform.LookAt(_player.transform);
+            _animator.SetTrigger("isSpell");
+            var temp = GameObject.Instantiate(_Sign, _player.transform.position, Quaternion.Euler(-90, 0, 0)).GetComponent<Sign>();
+            temp.Init(_Damage);
+            cooldown = _cooldownSpell;
+            state = NodeState.SUCCESS;
+            return state;
+        }
+        else
+        {
+            state = NodeState.FAILURE;
+            return state;
+        }
+    }
+}
+
+
+TaskAutoAttack
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+using BehaviourTree;
+public class TaskAutoAttack : Node
+{
+    private GameObject _player;
+    private Transform _transform;
+    private NavMeshAgent _agent;
+    private Animator _animator;
+    public TaskAutoAttack(NavMeshAgent agent, Transform transform)
+    {
+        _player = GameObject.FindWithTag("Player");
+        _transform = transform;
+        _agent = agent;
+        _animator = agent.GetComponent<Animator>();
+    }
+    public override NodeState Evaluate()
+    {
+        _agent.isStopped = true;
+        _transform.LookAt(_player.transform);
+        _animator.SetBool("isAuto", true);
+
+        state = NodeState.RUNNING;
+        return state;
+    }
+}
+
+
+CheckChase
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+using BehaviourTree;
+public class CheckChase : Node
+{
+    private GameObject _player;
+    private Animator _animator;
+    private Transform _transform;
+    private float _aggroRange;
+    public CheckChase(Transform transform, float aggroRange)
+    {
+        _player = GameObject.FindWithTag("Player");
+        _animator = transform.GetComponent<Animator>();
+        _transform = transform;
+        _aggroRange = aggroRange;
+    }
+    public override NodeState Evaluate()
+    {
+        if (Vector3.Distance(_player.transform.position, _transform.position) <= _aggroRange){
+            state = NodeState.SUCCESS;
+            return state;
+        }
+        else
+        {
+            _animator.SetBool("isChasing", false);
+            state = NodeState.FAILURE;
+            return state;
+        }
+    }
+
+}
+
+
+TaskChase
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+using BehaviourTree;
+public class TaskChase : Node
+{
+    private GameObject _player;
+    private Transform _transform;
+    private NavMeshAgent _agent;
+    private Animator _animator;
+    public TaskChase(NavMeshAgent agent, Transform transform)
+    {
+        _player = GameObject.FindWithTag("Player");
+        _transform = transform;
+        _agent = agent;
+        _animator = agent.GetComponent<Animator>();
+    }
+    public override NodeState Evaluate()
+    {
+        _agent.SetDestination(_player.transform.position);
+        _transform.LookAt(_player.transform);
+        _animator.SetBool("isChasing", true);
+        state = NodeState.RUNNING;
+        return state;
+    }
+}
+
+
+TaskPatrol
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+using BehaviourTree;
+public class TaskPatrol : Node
+{
+    private NavMeshAgent _agent;
+    private Animator _animator;
+    private Transform _pointsObject;
+    private List<Transform> points = new List<Transform>();
+    private int _currentWaypointIndex = 0;
+    private int _randomWaypointIndex = 0;
+    private float _waitTime = 5f;
+    private float _waitCounter = 0f;
+    private bool _waiting = false;
+    private bool _first = true;
+    public TaskPatrol(NavMeshAgent agent, Transform pointsObject)
+    {
+        _agent = agent;
+        _animator = agent.GetComponent<Animator>();
+        _pointsObject = pointsObject;
+    }
+    public override NodeState Evaluate()
+    {
+        if (_first)
+        {
+            foreach (Transform t in _pointsObject) 
+                points.Add(t);
+            _animator.SetBool("isPatrolling", true);
+            _agent.SetDestination(points[_currentWaypointIndex = Random.Range(0, points.Count)].position);
+            _first = false;
+        }
+        else
+        {
+            if (_waiting)
+            {
+                _waitCounter += Time.deltaTime;
+                if (_waitCounter >= _waitTime)
+                {
+                    _animator.SetBool("isPatrolling", true);
+                    bool stateWay = true;
+                    while (stateWay)
+                    {
+                        _randomWaypointIndex = Random.Range(0, points.Count);
+                        if (_currentWaypointIndex != _randomWaypointIndex)
+                        {
+                            _agent.SetDestination(points[_currentWaypointIndex = _randomWaypointIndex].position);
+                            stateWay = false;
+                        }
+                    }
+                    _waiting = false;
+                }
+            }
+            else
+            {
+                if (_agent.remainingDistance <= _agent.stoppingDistance)
+                {
+                    _animator.SetBool("isPatrolling", false);
+                    _waitCounter = 0f;
+                    _waiting = true;
+                }
+            }
+        }
+        state = NodeState.RUNNING;
+        return state;
+    }
+}
+
+
+Mage_BT
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+using BehaviourTree;
+public class Mage_BT : Trees
+{
+    [SerializeField] protected Transform transform;
+    [SerializeField] protected Transform pointsObject;
+    [SerializeField] protected NavMeshAgent agent;
+    [SerializeField] protected float Damage_auto = 2f;
+    [SerializeField] protected float Damage_spell = 0.1f;
+    [SerializeField] protected float aggroRange = 10f;
+    [SerializeField] protected float attackRange = 6f;
+    [SerializeField] protected float cooldownSpell = 12f;
+    [SerializeField] protected GameObject autoSpell;
+    [SerializeField] protected GameObject Flash;
+    [SerializeField] protected GameObject Spell_Bullet;
+    [SerializeField] protected GameObject Sign;
+    protected override Node SetupTree()
+    {
+        Node root = new Selector(new List<Node>
+        {
+            new Sequence(new List<Node>
+            {
+                new CheckAttack(agent, transform, attackRange),
+                    new Selector(new List<Node>
+                    {
+                        new TaskSpellAttack(Sign, Damage_spell, agent, transform, cooldownSpell),
+                        new TaskAutoAttack(agent, transform),
+                    }),
+            }),
+            new Sequence(new List<Node>
+            {
+                new CheckChase(transform, aggroRange),
+                new TaskChase(agent, transform),
+            }),
+            new TaskPatrol(agent, pointsObject),
+        });
+        
+        return root;
+    }
+    public void AutoSpell(){
+        autoSpell.GetComponent<AutoSpell>().Init(Damage_auto, GameObject.FindWithTag("Player"), Flash, Spell_Bullet);
+    }
+    private void OnDrawGizmos() {
+        Gizmos.color =Color.red;
+        Gizmos.DrawWireSphere(transform.position, attackRange);
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, aggroRange);
+    }
+}
+
+
+AutoSpell
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+public class AutoSpell : MonoBehaviour
+{
+    public void Init(float Damage, GameObject player, GameObject Flash, GameObject Spell_Bullet)
+    {
+        Vector3 _Des = new Vector3(player.transform.position.x, player.transform.position.y + 1f, player.transform.position.z);
+        Vector3 Difference = new Vector3(_Des.x - transform.position.x, 1f, _Des.z - transform.position.z);
+        var temp = GameObject.Instantiate(Spell_Bullet, transform.position, Quaternion.LookRotation((-Difference)) * Quaternion.Euler(0, 90, 0)).GetComponent<Spell_Bullet>();
+        temp.Init("Player", Damage, transform.position, _Des, Flash);
+    }
+}
+
+
+Spell_Bullet
+
+using Game.Entities;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+public class Spell_Bullet : MonoBehaviour
+{
+    private string p_tag;
+    private float p_damage, p_duration = 0.5f, p_curDuration;
+    private Vector3 p_spawnPoint;
+    private Vector3 p_destinationPoint;
+    private GameObject Flash;
+
+    public void Init(string tag, float _damage, Vector3 _spawnPoint, Vector3 _destinationPoint, GameObject flash)
+    {
+        p_tag = tag;
+        p_damage = _damage;
+        p_spawnPoint = _spawnPoint;
+        p_destinationPoint = _destinationPoint;
+        Flash = flash;
+    }
+    private void Update() {
+        transform.position += new Vector3((p_destinationPoint.x - p_spawnPoint.x) * Time.deltaTime* 3f, 
+        0f, (p_destinationPoint.z - p_spawnPoint.z) * Time.deltaTime * 3f);
+
+        if(p_curDuration >= p_duration)
+        {
+            Destroy(gameObject);
+        }
+        p_curDuration += Time.deltaTime;
+    }
+    private void OnTriggerEnter(Collider other)
+    {
+        if(other.tag == p_tag)
+        {
+            GameObject.Instantiate(Flash, new Vector3 (transform.position.x, transform.position.y, transform.position.z + 0.3f), Quaternion.identity);
+            other.GetComponent<Actor>().ApplyDamage(p_damage);
+            Destroy(gameObject);
+        }
+    }
+}
+
+
+Seal
+
+using System.Collections;
+using System.Collections.Generic;
+using Game.Entities;
+using UnityEngine;
+public class Seal : MonoBehaviour
+{
+    private ParticleSystem particleSystem;
+    private float p_duration = 6, p_curDuration = 0, _Damage;
+    private GameObject _player;
+    private Collider collider;
+    public void Init(float Damage)
+    {
+        _Damage = Damage;
+    }
+    private void Start() {
+        particleSystem = GetComponent<ParticleSystem>();
+        _player = GameObject.FindWithTag("Player");
+        collider = _player.GetComponent<CapsuleCollider>();
+        var triggerModule = particleSystem.trigger;
+        triggerModule.SetCollider(0, collider);
+    }
+    private void Update() {
+        if(p_curDuration >= p_duration)
+        {
+            Destroy(gameObject);
+        }
+        p_curDuration += Time.deltaTime;
+    }
+    private void OnParticleTrigger()
+    {
+        _player.GetComponent<Actor>().ApplyDamage(_Damage);
+    }
+}
+
+
+Sign
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+public class Sign : MonoBehaviour
+{
+    [SerializeField] public GameObject Seal;
+    private float p_duration = 3, p_curDuration = 0, _Damage;
+    public void Init(float Damage)
+    {
+        _Damage = Damage;
+    }
+    void Update()
+    {
+        if(p_curDuration >= p_duration)
+        {
+            var temp = GameObject.Instantiate(Seal, transform.position, Quaternion.Euler(-90, 0, 0)).GetComponent<Seal>();
+            temp.Init(_Damage);
+            Destroy(gameObject);
+        }
+        p_curDuration += Time.deltaTime;
+    }
+}
+
+
+
+ШІ противника, який лікує
+
+
+CheckHealthSelf
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+using Logics.Health;
+using BehaviourTree;
+public class CheckHealthSelf : Node
+{
+    private NavMeshAgent _agent;
+    private Transform _transform;
+    public CheckHealthSelf(NavMeshAgent agent, Transform transform)
+    {
+        _agent = agent;
+        _transform = transform;
+    }
+    public override NodeState Evaluate()
+    {
+        if (_transform.GetComponent<CHealth>().CurrentHealth < _transform.GetComponent<CHealth>().MaxHealth / 2f)
+        {
+            state = NodeState.SUCCESS;
+            return state;
+        }
+        _agent.isStopped = false;
+        state = NodeState.FAILURE;
+        return state;
+    }
+}
+
+
+TasksHealthSelf
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+using Game.Entities;
+using Logics.Health;
+using BehaviourTree;
+public class TasksHealthSelf : Node
+{
+    private GameObject _target;
+    private Animator _animator;
+    private NavMeshAgent _agent;
+    private Transform _transform;
+    private GameObject _health;
+    private float _healthCount, _cooldownSpell, cooldown;
+    private Vector3 _Des;
+    public TasksHealthSelf(NavMeshAgent agent, Transform transform, GameObject target, GameObject health, float healthCount, float cooldownSpell)
+    {
+        _target = target;
+        _agent = agent;
+        _transform = transform;
+        _animator = transform.GetComponent<Animator>();
+        _health = health;
+        _healthCount = healthCount;
+        _cooldownSpell = cooldownSpell;
+        cooldown = _cooldownSpell;
+    }
+    public override NodeState Evaluate()
+    {
+        if(cooldown >= _cooldownSpell)
+        {
+            _animator.SetTrigger("health_self");
+            _agent.isStopped = true;
+            _Des = new Vector3 (_target.transform.position.x, _target.transform.position.y + 3f, _target.transform.position.z);
+            var temp = GameObject.Instantiate(_health, _Des, Quaternion.identity).GetComponent<Blink_health>();
+            temp.Init(_Des);
+            _target.GetComponent<CHealth>().AddHealth(_healthCount);
+            cooldown = 0f;
+            state = NodeState.SUCCESS;
+            return state;
+        }
+        else
+        {
+            cooldown += Time.deltaTime;
+            state = NodeState.FAILURE;
+            return state;
+        }
+    }
+}
+
+
+TasksHealthAny
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+using Game.Entities;
+using Logics.Health;
+using BehaviourTree;
+public class TasksHealthAny : Node
+{
+    private GameObject _colliderObj;
+    private Animator _animator;
+    private NavMeshAgent _agent;
+    private Transform _transform;
+    private GameObject _healthObj;
+    private float _healthCount, _cooldownSpell, cooldown;
+    private List<GameObject> collidedObjects = new List<GameObject>();
+    public TasksHealthAny(NavMeshAgent agent, Transform transform, GameObject colliderObj, GameObject healthObj, float healthCount, float cooldownSpell)
+    {
+        _colliderObj = colliderObj;
+        _agent = agent;
+        _transform = transform;
+        _animator = transform.GetComponent<Animator>();
+        _healthObj = healthObj;
+        _healthCount = healthCount;
+        _cooldownSpell = cooldownSpell;
+        cooldown = _cooldownSpell;
+    }
+    public override NodeState Evaluate()
+    {
+        collidedObjects = _colliderObj.GetComponent<Colliders>().Init();
+        if (collidedObjects.Count > 0)
+        {
+            foreach(GameObject obj in collidedObjects)
+            {
+                if (obj == null) 
+                {
+                    continue;
+                }
+                else if (obj.GetComponent<CHealth>().CurrentHealth < obj.GetComponent<CHealth>().MaxHealth / 2f)
+                {
+                    if(cooldown >= _cooldownSpell)
+                    {
+                        _agent.isStopped = true;
+                        _transform.LookAt(obj.transform);
+                        _animator.SetTrigger("health_any");
+                        var temp = GameObject.Instantiate(_healthObj, obj.transform.position,  Quaternion.Euler(-90, 0, 0)).GetComponent<Healt_seal>();
+                        temp.Init(_healthCount);
+                        cooldown = 0f;
+                        state = NodeState.SUCCESS;
+                        return state;
+                    }
+                    cooldown += Time.deltaTime;
+                }
+            }
+        }
+        
+        state = NodeState.FAILURE;
+        return state;
+    }
+}
+
+
+CheckAttacking
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+using BehaviourTree;
+public class CheckAttacking : Node
+{
+    private GameObject _player;
+    private GameObject _autoSpell;
+    private ParticleSystem  _autoSpell_1;
+    private ParticleSystem  _autoSpell_2;
+    private Animator _animator;
+    private NavMeshAgent _agent;
+    private Transform _transform;
+    private float _attackRange, dur = 5f;
+    public CheckAttacking(NavMeshAgent agent, Transform transform, float attackRange, GameObject autoSpell)
+    {
+        _player = GameObject.FindWithTag("Player");
+        _autoSpell = autoSpell;
+        _autoSpell_1 = autoSpell.transform.Find("Soul_1").gameObject.GetComponent<ParticleSystem>();
+        _autoSpell_2 = autoSpell.transform.Find("Soul_2").gameObject.GetComponent<ParticleSystem>();
+        _agent = agent;
+        _animator = transform.GetComponent<Animator>();
+        _transform = transform;
+        _attackRange = attackRange;
+    }
+    public override NodeState Evaluate()
+    {
+        var emission_1 = _autoSpell_1.emission;
+        var emission_2 = _autoSpell_2.emission;
+        if (Vector3.Distance(_player.transform.position, _transform.position) <= _attackRange){
+            _autoSpell.SetActive(true);
+            emission_1.rateOverTimeMultiplier = 20f;
+            emission_2.rateOverTimeMultiplier = 10f;
+            if(_autoSpell_1.isStopped && _autoSpell_2.isStopped)
+            {
+                _autoSpell_1.Play();
+                _autoSpell_2.Play();
+            }
+            state = NodeState.SUCCESS;
+            return state;
+        }
+        else
+        {
+            if (_autoSpell_1.isPlaying && _autoSpell_2.isPlaying)
+            { 
+                emission_1.rateOverTimeMultiplier -= Time.deltaTime * 5f;
+                emission_2.rateOverTimeMultiplier -= Time.deltaTime * 5f;
+                if (emission_1.rateOverTimeMultiplier <= 0f && emission_2.rateOverTimeMultiplier <= 0f)
+                {
+                    _autoSpell_1.Stop();
+                    _autoSpell_2.Stop();
+                    dur -= Time.deltaTime;
+                    if(dur <= 0)
+                    {
+                        emission_1.rateOverTimeMultiplier = 20f;
+                        emission_2.rateOverTimeMultiplier = 10f;
+                        _autoSpell.SetActive(false);
+                    }
+                }
+            }
+            _agent.isStopped = false;
+            _animator.SetBool("isAuto", false);
+            state = NodeState.FAILURE;
+            return state;
+        }
+    }
+}
+
+
+TasksAutoAttacking
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+using Game.Entities;
+using BehaviourTree;
+public class TasksAutoAttacking : Node
+{
+    private GameObject _player;
+    private Transform _transform;
+    private NavMeshAgent _agent;
+    private Animator _animator;
+    private float _damage;
+    public TasksAutoAttacking(NavMeshAgent agent, Transform transform, float Damage_auto)
+    {
+        _player = GameObject.FindWithTag("Player");
+        _transform = transform;
+        _agent = agent;
+        _animator = agent.GetComponent<Animator>();
+        _damage = Damage_auto;
+    }
+    public override NodeState Evaluate()
+    {
+        _player.GetComponent<Actor>().ApplyDamage(_damage);
+        _agent.isStopped = true;
+        _transform.LookAt(_player.transform);
+        _animator.SetBool("isAuto", true);
+        state = NodeState.RUNNING;
+        return state;
+    }
+}
+
+
+CheckChasing
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+using BehaviourTree;
+public class CheckChasing : Node
+{
+    private GameObject _player;
+    private Animator _animator;
+    private Transform _transform;
+    private float _aggroRange;
+    public CheckChasing (Transform transform, float aggroRange)
+    {
+        _player = GameObject.FindWithTag("Player");
+        _animator = transform.GetComponent<Animator>();
+        _transform = transform;
+        _aggroRange = aggroRange;
+    }
+    public override NodeState Evaluate()
+    {
+        if (Vector3.Distance(_player.transform.position, _transform.position) <= _aggroRange){
+            state = NodeState.SUCCESS;
+            return state;
+        }
+        else
+        {
+            _animator.SetBool("isChasing", false);
+            state = NodeState.FAILURE;
+            return state;
+        }
+    }
+
+}
+
+
+TasksChasing
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+using BehaviourTree;
+public class TasksChasing : Node
+{
+    private GameObject _player;
+    private Transform _transform;
+    private NavMeshAgent _agent;
+    private Animator _animator;
+    public TasksChasing(NavMeshAgent agent, Transform transform)
+    {
+        _player = GameObject.FindWithTag("Player");
+        _transform = transform;
+        _agent = agent;
+        _animator = agent.GetComponent<Animator>();
+    }
+    public override NodeState Evaluate()
+    {
+        _agent.SetDestination(_player.transform.position);
+        _transform.LookAt(_player.transform);
+        _animator.SetBool("isChasing", true);
+        state = NodeState.RUNNING;
+        return state;
+    }
+}
+
+
+TasksPatrolling
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+using BehaviourTree;
+public class TasksPatrolling : Node
+{
+    private NavMeshAgent _agent;
+    private Animator _animator;
+    private Transform _pointsObject;
+    private List<Transform> points = new List<Transform>();
+    private int _currentWaypointIndex = 0;
+    private int _randomWaypointIndex = 0;
+    private float _waitTime = 5f;
+    private float _waitCounter = 0f;
+    private bool _waiting = false;
+    private bool _first = true;
+    public TasksPatrolling(NavMeshAgent agent, Transform pointsObject)
+    {
+        _agent = agent;
+        _animator = agent.GetComponent<Animator>();
+        _pointsObject = pointsObject;
+    }
+    public override NodeState Evaluate()
+    {
+        if (_first)
+        {
+            foreach (Transform t in _pointsObject) 
+                points.Add(t);
+            _animator.SetBool("isPatrolling", true);
+            _agent.SetDestination(points[_currentWaypointIndex = Random.Range(0, points.Count)].position);
+            _first = false;
+        }
+        else
+        {
+            if (_waiting)
+            {
+                _waitCounter += Time.deltaTime;
+                if (_waitCounter >= _waitTime)
+                {
+                    _animator.SetBool("isPatrolling", true);
+                    bool stateWay = true;
+                    while (stateWay)
+                    {
+                        _randomWaypointIndex = Random.Range(0, points.Count);
+                        if (_currentWaypointIndex != _randomWaypointIndex)
+                        {
+                            _agent.SetDestination(points[_currentWaypointIndex = _randomWaypointIndex].position);
+                            stateWay = false;
+                        }
+                    }
+                    _waiting = false;
+                }
+            }
+            else
+            {
+                if (_agent.remainingDistance <= _agent.stoppingDistance)
+                {
+                    _animator.SetBool("isPatrolling", false);
+                    _waitCounter = 0f;
+                    _waiting = true;
+                }
+            }
+        }
+        state = NodeState.RUNNING;
+        return state;
+    }
+}
+
+
+Colliders
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+public class Colliders : MonoBehaviour
+{
+    public List<GameObject> collidedObjects = new List<GameObject>();
+    private void OnTriggerEnter(Collider other)
+    {
+        if (!collidedObjects.Contains(other.gameObject) && other.CompareTag("Enemy"))
+        {
+            collidedObjects.Add(other.gameObject);
+        }
+    }
+    private void OnTriggerExit(Collider other)
+    {
+        if (collidedObjects.Contains(other.gameObject))
+        {
+            collidedObjects.Remove(other.gameObject);
+        }
+    }
+    public List<GameObject> Init()
+    {
+        return collidedObjects;
+    }
+}
+
+
+Healt_seal
+
+using System.Collections;
+using System.Collections.Generic;
+using Game.Entities;
+using Logics.Health;
+using UnityEngine;
+public class Healt_seal : MonoBehaviour
+{
+    private ParticleSystem particleSystem;
+    private float p_duration = 6, p_curDuration = 0, _healthCount;
+    public List<GameObject> collidedObjects = new List<GameObject>();
+    public List<Collider> colliders = new List<Collider>();
+    public void Init(float healthCount)
+    {
+        _healthCount = healthCount;
+    }
+    private void Start() 
+    {
+        particleSystem = GetComponent<ParticleSystem>();
+    }
+    private void Update() {
+        collidedObjects = GetComponent<Colliders>().Init();
+        if(collidedObjects.Count > 0){
+            var triggerModule = particleSystem.trigger;
+            foreach(GameObject obj in collidedObjects)
+            {
+                colliders.Add(obj.GetComponent<CapsuleCollider>());
+            }
+            int i = 0;
+            foreach(Collider coll in colliders)
+            {
+                triggerModule.SetCollider(i++, coll);
+            }
+        }
+        if(p_curDuration >= p_duration)
+        {
+            Destroy(gameObject);
+        }
+        p_curDuration += Time.deltaTime;
+    }
+    private void OnParticleTrigger()
+    {
+        foreach(GameObject obj in collidedObjects)
+        {
+            obj.GetComponent<CHealth>().AddHealth(_healthCount);
+        }
+
+    }
+}
+
+
+Mage_Health_BT
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+using BehaviourTree;
+public class Mage_Health_BT : Trees
+{
+    [SerializeField] protected Transform transform;
+    [SerializeField] protected Transform pointsObject;
+    [SerializeField] protected NavMeshAgent agent;
+    [SerializeField] protected float Damage_auto = 0.02f;
+    [SerializeField] protected float aggroRange = 10f;
+    [SerializeField] protected float attackRange = 6f;
+    [SerializeField] protected float healthCountSelf = 20f;
+    [SerializeField] protected float healthCountAny = 0.02f;
+    [SerializeField] protected float cooldownHealthSelf = 10f;
+    [SerializeField] protected float cooldownHealthAny = 20f;
+    [SerializeField] protected GameObject autoSpell;
+    [SerializeField] protected GameObject health;
+    [SerializeField] protected GameObject _colliderObj;
+    [SerializeField] protected GameObject healthObj;
+    protected override Node SetupTree()
+    {
+        Node root = new Selector(new List<Node>
+        {
+            new Selector(new List<Node>{
+                new Sequence(new List<Node>{
+                    new CheckHealthSelf(agent, transform),
+                    new TasksHealthSelf(agent, transform, transform.gameObject, health, healthCountSelf, cooldownHealthSelf),
+                }),
+                new TasksHealthAny(agent, transform, _colliderObj, healthObj, healthCountAny, cooldownHealthAny)
+            }),
+            new Sequence(new List<Node>
+            {
+                new CheckAttacking(agent, transform, attackRange, autoSpell),
+                new TasksAutoAttacking(agent, transform, Damage_auto),
+            }),
+            new Sequence(new List<Node>
+            {
+                new CheckChasing(transform, aggroRange),
+                new TasksChasing(agent, transform),
+            }),
+            new TasksPatrolling(agent, pointsObject),
+        });
+        
+        return root;
+    }
+    private void OnDrawGizmos() {
+        Gizmos.color =Color.red;
+        Gizmos.DrawWireSphere(transform.position, attackRange);
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, aggroRange);
+    }
+}

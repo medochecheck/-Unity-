@@ -1,0 +1,49 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class LightController : MonoBehaviour
+{
+    public Light directionalLight;               
+    public Material daySkybox;                   
+    public Material nightSkybox;                 
+    public float minChangeInterval = 5.0f;       
+    public float maxChangeInterval = 15.0f;      
+
+    private bool isDay = true;                   
+    private void Start()
+    {
+        if (directionalLight == null)
+        {
+            Debug.LogError("Directional Light is not assigned.");
+            return;
+        }
+
+        RenderSettings.skybox = daySkybox;
+        directionalLight.intensity = 1.0f;
+        StartCoroutine(ChangeLighting());
+    }
+
+    private IEnumerator ChangeLighting()
+    {
+        while (true)
+        {
+            float waitTime = Random.Range(minChangeInterval, maxChangeInterval);
+            yield return new WaitForSeconds(waitTime);
+            isDay = !isDay;
+
+            if (isDay)
+            {
+                RenderSettings.skybox = daySkybox;
+                directionalLight.intensity = 1.0f;
+                directionalLight.color = Color.white;
+            }
+            else
+            {
+                RenderSettings.skybox = nightSkybox;
+                directionalLight.intensity = 0.2f;
+                directionalLight.color = Color.blue;
+            }
+        }
+    }
+}

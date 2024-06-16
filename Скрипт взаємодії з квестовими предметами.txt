@@ -1,0 +1,19 @@
+public class QuestItem : MonoBehaviour
+{
+    public int experienceReward = 50;
+    private ExperienceSystem experienceSystem;
+
+    void Start()
+    {
+        experienceSystem = FindObjectOfType<ExperienceSystem>();
+    }
+
+    void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("Player"))
+        {
+            experienceSystem.AddExperience(experienceReward);
+            Destroy(gameObject);
+        }
+    }
+}

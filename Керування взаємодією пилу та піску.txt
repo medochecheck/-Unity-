@@ -1,0 +1,67 @@
+using System.Collections;
+using UnityEngine;
+
+public class DustController : MonoBehaviour
+{
+    public ParticleSystem dustStorm;
+    public ParticleSystem rockDebris;
+    public ParticleSystem sandParticles;
+    public WindZone windZone;
+    public float minDustIntensity = 10f; 
+    public float maxDustIntensity = 100f; 
+    public float minChangeInterval = 5.0f; 
+    public float maxChangeInterval = 15.0f; 
+
+    private ParticleSystem.EmissionModule dustEmission;
+    private ParticleSystem.EmissionModule rockEmission;
+    private ParticleSystem.EmissionModule sandEmission;
+
+    void Start()
+    {
+        if (dustStorm != null && rockDebris != null && sandParticles != null && windZone != null)
+        {
+            dustEmission = dustStorm.emission;
+            rockEmission = rockDebris.emission;
+            sandEmission = sandParticles.emission;
+            StartCoroutine(ChangeDustIntensity());
+        }
+    }
+
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.D))
+        {
+            if (dustStorm.isEmitting)
+            {
+                dustStorm.Stop();
+                rockDebris.Stop();
+                sandParticles.Stop();
+            }
+            else
+            {
+                dustStorm.Play();
+                rockDebris.Play();
+                sandParticles.Play();
+            }
+        }
+    }
+
+    IEnumerator ChangeDustIntensity()
+    {
+        while (true)
+        {
+            float waitTime = Random.Range(minChangeInterval, maxChangeInterval);
+            yield return new WaitForSeconds(waitTime);
+            float dustIntensity = Random.Range(minDustIntensity, maxDustIntensity);
+            var dustRate = new ParticleSystem.MinMaxCurve(dustIntensity);
+            var rockRate = new ParticleSystem.MinMaxCurve(dustIntensity * 0.5f); 
+            var sandRate = new ParticleSystem.MinMaxCurve(dustIntensity * 0.8f); 
+
+            dustEmission.rateOverTime = dustRate;
+            rockEmission.rateOverTime = rockRate;
+            sandEmission.rateOverTime = sandRate;
+            windZone.windMain = Random.Range(0.5f, 2.0f);
+            windZone.windTurbulence = Random.Range(0.1f, 1.0f);
+        }
+    }
+}

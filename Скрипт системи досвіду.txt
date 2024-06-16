@@ -1,0 +1,53 @@
+using System;
+using UnityEngine;
+
+public class ExperienceSystem : MonoBehaviour
+{
+    public int currentLevel = 1;
+    public int currentExperience = 0;
+    public int experiencePerLevel = 100;  
+
+    public event Action OnLevelUp;
+
+    void Start()
+    {
+        InitializeExperienceSystem();
+    }
+
+    void InitializeExperienceSystem()
+    {
+        currentLevel = 1;
+        currentExperience = 0;
+    }
+
+    public void AddExperience(int amount)
+    {
+        currentExperience += amount;
+        CheckLevelUp();
+    }
+
+    void CheckLevelUp()
+    {
+        while (currentExperience >= GetExperienceRequiredForNextLevel())
+        {
+            currentExperience -= GetExperienceRequiredForNextLevel();
+            currentLevel++;
+            OnLevelUp?.Invoke();
+        }
+    }
+
+    int GetExperienceRequiredForNextLevel()
+    {
+        return experiencePerLevel * currentLevel;
+    }
+
+    public int GetCurrentLevel()
+    {
+        return currentLevel;
+    }
+
+    public int GetCurrentExperience()
+    {
+        return currentExperience;
+    }
+}

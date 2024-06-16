@@ -1,0 +1,342 @@
+ШІ ближнього бою
+
+
+FSM_Base
+
+using Game.Entities;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+public class FSM_Base : StateMachineBehaviour
+{
+    protected float Damage = 1f;
+    protected float attackRange = 1.5f;
+    protected float aggroRange = 5f;
+    protected GameObject player;
+    override public void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        player = animator.GetComponent<FSM_AI_Near>().player;
+    }
+}
+
+
+IdleBehaviour
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+public class IdleBehaviour : FSM_Base
+{  float timer;
+    override public void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        base.OnStateEnter(animator, stateInfo,layerIndex);
+        timer = 0;
+    }
+    override public void OnStateUpdate(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        timer += Time.deltaTime;
+        if(timer > 5) animator.SetBool("isPatrolling", true);
+        float distance = Vector3.Distance(animator.transform.position, player.transform.position);
+        if (distance < aggroRange)
+            animator.SetBool("isChasing", true);
+    }
+    override public void OnStateExit(Animator animator, AnimatorStateInfo stateInfo, int layerIndex){}
+}
+
+
+PatrolBehaviour
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+public class PatrolBehaviour : FSM_Base
+{
+    float timer;
+    List<Transform> points = new List<Transform>();
+    NavMeshAgent agent;
+    override public void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        base.OnStateEnter(animator, stateInfo,layerIndex);
+        timer = 0;
+        Transform pointsObject = GameObject.FindGameObjectWithTag("Points").transform;
+        foreach (Transform t in pointsObject) 
+            points.Add(t);
+
+        agent = animator.GetComponent<NavMeshAgent>();
+        agent.SetDestination(points[0].position);
+    }
+    override public void OnStateUpdate(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        if (agent.remainingDistance <= agent.stoppingDistance)
+            agent.SetDestination(points[Random.Range(0, points.Count)].position);
+        timer += Time.deltaTime;
+        if(timer > 10) 
+            animator.SetBool("isPatrolling", false);
+        float distance = Vector3.Distance(animator.transform.position, player.transform.position);
+
+        if (distance < aggroRange)
+            animator.SetBool("isChasing", true);
+    }
+    override public void OnStateExit(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    { agent.SetDestination(agent.transform.position);}
+}
+
+
+ChaseBehaviour
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+public class ChaseBehaviour : FSM_Base
+{
+    NavMeshAgent agent;
+    override public void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        base.OnStateEnter(animator, stateInfo,layerIndex);
+        agent = animator.GetComponent<NavMeshAgent>();
+    }
+    override public void OnStateUpdate(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        agent.SetDestination(player.transform.position);
+        float distance = Vector3.Distance(animator.transform.position, player.transform.position);
+        if (distance < attackRange)
+            animator.SetBool("isAttacking", true);
+        if (distance > aggroRange)
+            animator.SetBool("isChasing", false);
+    }
+    override public void OnStateExit(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        agent.SetDestination(agent.transform.position);
+    }
+}
+
+
+AttackBehaviour
+
+using System.Collections;
+using System.Collections.Generic;
+using Game.Entities;
+using UnityEngine;
+public class AttackBehaviour : FSM_Base
+{
+    override public void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        base.OnStateEnter(animator, stateInfo,layerIndex);
+    }
+    override public void OnStateUpdate(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        animator.transform.LookAt(player.transform);
+        float distance = Vector3.Distance(animator.transform.position, player.transform.position);
+
+        if (distance > attackRange)
+            animator.SetBool("isAttacking", false);
+    }
+    override public void OnStateExit(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {}
+}
+
+
+FSM_AI_Near
+
+using Game.Entities;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+public class FSM_AI_Near : MonoBehaviour
+{
+    public GameObject player;
+    protected float Damage = 1f;
+    protected float attackCD = 1f;
+    protected float attackRange = 1.5f;
+    protected float aggroRange = 5f;
+    private void Start() {
+        player = GameObject.FindWithTag("Player");
+    }
+    private void OnDrawGizmos() {
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, attackRange);
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, aggroRange);
+    }
+    public void StartDealDamage(){
+        player.GetComponent<Actor>().ApplyDamage(Damage);
+    }
+}
+
+
+
+ШІ дальнього бою
+
+
+FSM_Base_Far
+
+using Game.Entities;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+public class FSM_Base_Far : StateMachineBehaviour
+{
+    protected float Damage = 2f;
+    protected float attackCD = 2f;
+    protected float attackRange = 6f;
+    protected float aggroRange = 10f;
+    protected GameObject player;
+    override public void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        player = animator.GetComponent<FSM_AI_Far>().player;
+    }
+}
+
+IdleBehaviour_Far
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+public class IdleBehaviour_Far : FSM_Base_Far
+{
+    float timer;
+    override public void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        base.OnStateEnter(animator, stateInfo,layerIndex);
+        timer = 0;
+    }
+    override public void OnStateUpdate(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        timer += Time.deltaTime;
+        if(timer > 5) animator.SetBool("isPatrolling", true);
+        float distance = Vector3.Distance(animator.transform.position, player.transform.position);
+        if (distance < aggroRange)
+            animator.SetBool("isChasing", true);
+    }
+    override public void OnStateExit(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {}
+}
+
+
+PatrolBehaviour_Far
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+public class PatrolBehaviour_Far : FSM_Base_Far
+{
+    float timer;
+    List<Transform> points = new List<Transform>();
+    NavMeshAgent agent;
+    override public void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        base.OnStateEnter(animator, stateInfo,layerIndex);
+        timer = 0;
+        Transform pointsObject = GameObject.FindGameObjectWithTag("Points_far").transform;
+        foreach (Transform t in pointsObject) 
+            points.Add(t);
+        agent = animator.GetComponent<NavMeshAgent>();
+        agent.SetDestination(points[0].position);
+    }
+    override public void OnStateUpdate(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        if (agent.remainingDistance <= agent.stoppingDistance)
+            agent.SetDestination(points[Random.Range(0, points.Count)].position);
+        
+        timer += Time.deltaTime;
+        if(timer > 20) 
+            animator.SetBool("isPatrolling", false);
+        float distance = Vector3.Distance(animator.transform.position, player.transform.position);
+
+        if (distance < aggroRange)
+            animator.SetBool("isChasing", true);
+    }
+    override public void OnStateExit(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        agent.SetDestination(agent.transform.position);
+    }
+}
+
+
+ChaseBehaviour_Far
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+public class ChaseBehaviour_Far : FSM_Base_Far
+{
+    NavMeshAgent agent;
+    override public void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        base.OnStateEnter(animator, stateInfo,layerIndex);
+        agent = animator.GetComponent<NavMeshAgent>();
+    }
+    override public void OnStateUpdate(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        agent.SetDestination(player.transform.position);
+        float distance = Vector3.Distance(animator.transform.position, player.transform.position);
+        if (distance < attackRange)
+            animator.SetBool("isAttacking", true);
+        if (distance > aggroRange)
+            animator.SetBool("isChasing", false);
+    }
+    override public void OnStateExit(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        agent.SetDestination(agent.transform.position);
+    }
+}
+
+
+AttackBehaviour_Far
+
+using System.Collections;
+using System.Collections.Generic;
+using Game.Entities;
+using UnityEngine;
+public class AttackBehaviour_Far : FSM_Base_Far
+{
+    override public void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        base.OnStateEnter(animator, stateInfo,layerIndex);
+    }
+    override public void OnStateUpdate(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {
+        animator.transform.LookAt(player.transform);
+        float distance = Vector3.Distance(animator.transform.position, player.transform.position);
+        if (distance > attackRange)
+            animator.SetBool("isAttacking", false);
+    }
+    override public void OnStateExit(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
+    {}
+}
+
+
+FSM_AI_Far
+
+using Game.Entities;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+public class FSM_AI_Far : MonoBehaviour
+{
+    public GameObject player;
+    protected float Damage = 2f;
+    protected float attackRange = 6f;
+    protected float aggroRange = 10f;
+    private Vector3 _Des = Vector3.zero;
+    private Vector3 _Pos = Vector3.zero;
+    [Header("Prafab")]
+    [SerializeField] GameObject Pistol;
+    private void Start() {
+        player = GameObject.FindWithTag("Player");
+    }
+    private void OnDrawGizmos() {
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, attackRange);
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, aggroRange);
+    }
+    public void StartDealDamage(){
+        Pistol.GetComponent<Pistol>().Init(Damage, player);
+    }
+}

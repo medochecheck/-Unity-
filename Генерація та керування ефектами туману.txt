@@ -1,0 +1,66 @@
+using System.Collections;
+using UnityEngine;
+
+public class FogController : MonoBehaviour
+{
+    public Color fogColorDay = Color.gray;       
+    public Color fogColorNight = Color.black;    
+    public float minFogDensity = 0.01f;          
+    public float maxFogDensity = 0.1f;           
+    public float minChangeInterval = 5.0f;       
+    public float maxChangeInterval = 15.0f;      
+
+    public PostProcessVolume postProcessVolume;  
+    private DepthOfField depthOfField;           
+    private Vignette vignette;                   
+
+    private bool fogEnabled = true;              
+
+    private void Start()
+    {
+        RenderSettings.fog = true;
+        RenderSettings.fogMode = FogMode.ExponentialSquared;
+
+        postProcessVolume.profile.TryGetSettings(out depthOfField);
+        postProcessVolume.profile.TryGetSettings(out vignette);
+
+        StartCoroutine(ChangeFog());
+    }
+
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.F))
+        {
+            fogEnabled = !fogEnabled;
+            RenderSettings.fog = fogEnabled;
+        }
+    }
+
+    private IEnumerator ChangeFog()
+    {
+        while (true)
+        {
+            float waitTime = Random.Range(minChangeInterval, maxChangeInterval);
+            yield return new WaitForSeconds(waitTime);
+
+            if (fogEnabled)
+            {
+                float fogDensity = Random.Range(minFogDensity, maxFogDensity);
+                RenderSettings.fogDensity = fogDensity;
+
+                Color fogColor = (Random.value > 0.5f) ? fogColorDay : fogColorNight;
+                RenderSettings.fogColor = fogColor;
+
+                if (depthOfField != null)
+                {
+                    depthOfField.aperture.value = Mathf.Lerp(0.1f, 3.0f, fogDensity);
+                }
+
+                if (vignette != null)
+                {
+                    vignette.intensity.value = Mathf.Lerp(0.1f, 0.4f, fogDensity);
+                }
+            }
+        }
+    }
+}

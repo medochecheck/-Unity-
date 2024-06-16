@@ -1,0 +1,117 @@
+ШІ ближнього бою
+
+Simple_AI_Near
+using Game.Entities;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+
+public class Simple_AI_Near : MonoBehaviour
+{
+    [Header("Combat")]
+    [SerializeField] float Damage = 1f;
+    [SerializeField] float attackRange = 1.2f;
+    [SerializeField] float aggroRange = 5f;
+    private GameObject player;
+    private NavMeshAgent agent;
+    private Animator animator;
+    void Start()
+    {
+        player = GameObject.FindWithTag("Player");
+        agent = GetComponent<NavMeshAgent>();
+        animator = GetComponent<Animator>();
+    }
+    void Update()
+    {
+        animator.SetFloat("speed", agent.velocity.magnitude / agent.speed);
+            if(Vector3.Distance(player.transform.position, transform.position) <= attackRange){
+                transform.LookAt(player.transform);
+                animator.SetTrigger("attack");
+            }
+        else if (Vector3.Distance(player.transform.position, transform.position) <= aggroRange){
+            transform.LookAt(player.transform);
+            agent.SetDestination(player.transform.position);
+        }
+    }
+    public void StartDealDamage(){
+        player.GetComponent<Animator>().SetTrigger("damage");
+        player.GetComponent<Actor>().ApplyDamage(Damage);
+    }
+    private void OnDrawGizmos() {
+        Gizmos.color =Color.red;
+        Gizmos.DrawWireSphere(transform.position, attackRange);
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, aggroRange);
+    }
+}
+
+
+ШІ дальнього бою 
+
+Simple_AI_Far
+using Game.Entities;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+public class Simple_AI_Far : MonoBehaviour
+{
+    [Header("Combat")]
+    [SerializeField] float Damage = 2f;
+    [SerializeField] float attackRange = 6f;
+    [SerializeField] float aggroRange = 10f;
+    [Header("Prafab")]
+    [SerializeField] GameObject Pistol;
+    private GameObject player;
+    private NavMeshAgent agent;
+    private Animator animator;
+    void Start()
+    {
+        player = GameObject.FindWithTag("Player");
+        agent = GetComponent<NavMeshAgent>();
+        animator = GetComponent<Animator>();
+    }
+    void Update()
+    {
+        animator.SetFloat("speed", agent.velocity.magnitude / agent.speed);
+            if(Vector3.Distance(player.transform.position, transform.position) <= attackRange){
+                transform.LookAt(player.transform);
+                animator.SetTrigger("attack");
+            }
+        else if (Vector3.Distance(player.transform.position, transform.position) <= aggroRange){
+            transform.LookAt(player.transform);
+            agent.SetDestination(player.transform.position);
+        }
+    }
+    public void StartDealDamage(){
+        Pistol.GetComponent<Pistol>().Init(Damage, player);
+    }
+    private void OnDrawGizmos() {
+        Gizmos.color =Color.red;
+        Gizmos.DrawWireSphere(transform.position, attackRange);
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, aggroRange);
+    }
+}
+
+Pistol
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+public class Pistol : MonoBehaviour
+{
+    [Header("Prafab")]
+    [SerializeField] GameObject Bullet;
+    [SerializeField] GameObject Flash;
+    [SerializeField] GameObject Hit;
+    public void Init(float Damage, GameObject player)
+    {
+        Vector3 _Des = new Vector3(player.transform.position.x, player.transform.position.y + 1f, player.transform.position.z);
+        Vector3 Difference = new Vector3(_Des.x - transform.position.x, 0f, _Des.z - transform.position.z);
+        GameObject.Instantiate(Flash, transform.position, Quaternion.LookRotation((Difference)));
+        var temp = GameObject.Instantiate(Bullet, transform.position, Quaternion.LookRotation(-(Difference))).GetComponent<Fire_Bullet>();
+        temp.Init("Player", Damage, transform.position, _Des, Hit);
+    }
+
+}
